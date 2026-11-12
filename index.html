@@ -159,6 +159,11 @@ details summary{cursor:pointer;color:var(--o);font-weight:700;margin:8px 0}
 </div>
 <label>Signature (image PNG/JPG, fond blanc) — à charger une fois sur chaque appareil ; elle reste stockée dans ce navigateur uniquement</label>
 <div class="sigbox"><img id="sigImg" alt="signature"><label class="btn sm sec" style="margin:0">Changer l'image<input type="file" id="sigFile" accept="image/*" hidden></label><button class="btn sm sec" id="sigReset">Retirer</button></div>
+<details style="margin-top:8px"><summary>✍ Tracer la signature au doigt / à la souris</summary>
+<canvas id="sigPad" width="900" height="300" style="width:100%;max-width:450px;height:auto;border:1px dashed #bbb;border-radius:6px;background:#fff;touch-action:none;display:block"></canvas>
+<div class="actions"><button class="btn sm" id="padUse">Utiliser cette signature</button><button class="btn sm sec" id="padClear">Effacer</button></div>
+<div class="hint">Signez lentement, en grand : le tracé est réduit sur le PDF, les petits traits deviennent illisibles.</div>
+</details>
 <label><input type="checkbox" id="sigOn" checked> Apposer la signature sur les PDF</label>
 </div>
 <div class="panel">
@@ -776,6 +781,18 @@ if(!S.set.sig)$("prevHint").textContent="Aucune signature chargée : allez dans 
 $("prevDl").onclick=()=>{const p=valid()[prevIdx];if(!p)return toast("Renseignez un destinataire");buildPDF(p).save(fileName(p))};
 
 bindNav();bindDoc();bindDest();bindGen();bindSet();renderDest();renderCarnet();refresh();
+(function(){const c=$("sigPad");if(!c)return;const x=c.getContext("2d");x.lineWidth=5;x.lineCap="round";x.lineJoin="round";x.strokeStyle="#111";let d=false,last=null,empty=true;
+const pos=e=>{const r=c.getBoundingClientRect();return {x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height}};
+c.addEventListener("pointerdown",e=>{d=true;last=pos(e);c.setPointerCapture(e.pointerId);e.preventDefault()});
+c.addEventListener("pointermove",e=>{if(!d)return;const p=pos(e);x.beginPath();x.moveTo(last.x,last.y);x.lineTo(p.x,p.y);x.stroke();last=p;empty=false;e.preventDefault()});
+const up=()=>{d=false};c.addEventListener("pointerup",up);c.addEventListener("pointercancel",up);c.addEventListener("pointerleave",up);
+$("padClear").onclick=()=>{x.clearRect(0,0,c.width,c.height);empty=true};
+$("padUse").onclick=()=>{if(empty)return toast("Tracez d'abord une signature");
+ const img=x.getImageData(0,0,c.width,c.height).data;let minx=c.width,miny=c.height,maxx=0,maxy=0;
+ for(let yy=0;yy<c.height;yy++)for(let xx=0;xx<c.width;xx++){if(img[(yy*c.width+xx)*4+3]>0){if(xx<minx)minx=xx;if(xx>maxx)maxx=xx;if(yy<miny)miny=yy;if(yy>maxy)maxy=yy}}
+ const pad=20,w=maxx-minx+2*pad,h=maxy-miny+2*pad;const o=document.createElement("canvas");o.width=w;o.height=h;const ox=o.getContext("2d");ox.fillStyle="#fff";ox.fillRect(0,0,w,h);ox.drawImage(c,minx-pad,miny-pad,w,h,0,0,w,h);
+ S.set.sig=o.toDataURL("image/jpeg",.85);$("sigImg").src=S.set.sig;$("sigImg").style.display="";save();refreshPreview();toast("Signature enregistrée")};
+})();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
